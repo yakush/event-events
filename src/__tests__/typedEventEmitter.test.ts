@@ -11,6 +11,30 @@ describe('TypedEventEmitter', () => {
   // -------------------------------------------------------
   // 1. on / addListener — fire, unregister, no reaction
   // -------------------------------------------------------
+  describe('event names', () => {
+    it('return all events that are registered to except "*"', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const f = vi.fn();
+
+      emitter.on('greet', f);
+      emitter.on('count', f);
+      emitter.on('count', f);
+      emitter.on('*', f);
+      emitter.on('newListener', f);
+      expect(emitter.eventNames()).toEqual(['greet', 'count', 'newListener']);
+
+      emitter.off('greet', f);
+      emitter.off('count', f);
+      expect(emitter.eventNames()).toEqual(['count', 'newListener']);
+
+      emitter.off('newListener', f);
+      expect(emitter.eventNames()).toEqual(['count']);
+
+      emitter.off('count', f);
+      expect(emitter.eventNames()).toEqual([]);
+    });
+  });
   describe('on / addListener', () => {
     it('calls listener each time the event is emitted', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
@@ -124,7 +148,9 @@ describe('TypedEventEmitter', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
       const unsubscribe = emitter.subscribeOnce('greet', () => {});
       emitter.emit('greet', 'Alice');
-      expect(() => { unsubscribe(); }).not.toThrow();
+      expect(() => {
+        unsubscribe();
+      }).not.toThrow();
     });
 
     it('calling unsubscribe twice does not throw', () => {
@@ -495,6 +521,141 @@ describe('TypedEventEmitter', () => {
 
       emitter.on('greet', () => {});
       expect(warn).toHaveBeenCalledOnce();
+    });
+  });
+
+  // -------------------------------------------------------
+  // 10. wildcard listeners ('*')
+  // -------------------------------------------------------
+  describe('wildcard listeners', () => {
+    it('wildcard listener is called on every user event', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      emitter.on('*', (event) => calls.push(event));
+      emitter.emit('greet', 'Alice');
+      emitter.emit('count', 42);
+
+      expect(calls).toEqual(['greet', 'count']);
+    });
+
+    it('wildcard listener receives the event name and args', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('*', handler);
+      emitter.emit('greet', 'Alice');
+
+      expect(handler).toHaveBeenCalledWith('greet', 'Alice');
+    });
+
+    it('wildcard listener fires before regular listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const order: string[] = [];
+
+      emitter.on('*', () => order.push('wildcard'));
+      emitter.on('greet', () => order.push('regular'));
+      emitter.emit('greet', 'Alice');
+
+      expect(order).toEqual(['wildcard', 'regular']);
+    });
+
+    it('wildcard listener does not fire on internal events (newListener, removeListener)', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('*', handler);
+      // adding and removing a listener triggers internal events — wildcard must not fire for those
+      const listener = () => {};
+      emitter.on('greet', listener);
+      emitter.off('greet', listener);
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('emitting "*" directly throws', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      expect(() => emitter.emit('*' as any)).toThrow();
+    });
+
+    it('off removes the wildcard listener', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('*', handler);
+      emitter.off('*', handler);
+      emitter.emit('greet', 'Alice');
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('once("*") fires only on the first emit then auto-removes', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.once('*', handler);
+      emitter.emit('greet', 'Alice');
+      emitter.emit('greet', 'Bob');
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith('greet', 'Alice');
+    });
+
+    it('subscribe("*") returns an unsubscribe fn that removes the wildcard listener', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      const unsub = emitter.subscribe('*', handler);
+      emitter.emit('greet', 'Alice');
+      unsub();
+      emitter.emit('greet', 'Bob');
+
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('removeAllListeners("*") clears all wildcard listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('*', handler);
+      emitter.removeAllListeners('*');
+      emitter.emit('greet', 'Alice');
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('removeAllListeners() with no arg clears wildcard listeners too', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('*', handler);
+      emitter.removeAllListeners();
+      emitter.emit('greet', 'Alice');
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('listenerCount("*") returns the wildcard listener count', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      emitter.on('*', () => {});
+      emitter.on('*', () => {});
+
+      expect(emitter.listenerCount('*')).toBe(2);
+    });
+
+    it('rawListeners("*") returns the wildcard listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const listener1 = vi.fn();
+      const listener2 = vi.fn();
+      const listener3 = vi.fn();
+
+      emitter.on('*', listener1);
+      emitter.on('*', listener2);
+      emitter.on('count', listener3);
+
+      expect(emitter.rawListeners('*')).toEqual([listener1, listener2]);
     });
   });
 });

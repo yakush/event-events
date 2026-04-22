@@ -1,7 +1,12 @@
 import type { EventSource } from './eventSource.js';
-import type { AllEvents } from './internal/types.js';
+import {
+  isReservedEventName,
+  type EventListenerCombined,
+  type EventNamesCombined,
+  type EventParamsCombined,
+  type ReservedEvents,
+} from './internal/types.js';
 import type {
-  BaseEvents,
   ConstructionParams,
   ErrorHandlingType,
   EventListener,
@@ -13,13 +18,10 @@ import type {
 /**
  * container: { listener + metadata}
  */
-type Listener<T_EventMap extends EventMap> = {
+type Listener<T_EventMap extends EventMap = EventMap> = {
   wrappedListener: EventListener<T_EventMap, EventNames<T_EventMap>>;
   rawListener: EventListener<T_EventMap, EventNames<T_EventMap>>;
 };
-
-/** map: event=>{listener} */
-type ListenersMap<T_EventMap extends EventMap> = Map<string, Array<Listener<T_EventMap>>>;
 
 /**
  * A fully typed event emitter. Pass your event map as the type parameter to get
@@ -42,7 +44,17 @@ export class TypedEventEmitter<
 > implements EventSource<T_EventMap> {
   private static _GLOBAL_MAX_LISTENERS = 10;
 
-  private _listeners: ListenersMap<AllEvents<T_EventMap>> = new Map();
+  /**
+   * map: event -> (array:{event container}) \
+   * including the internal events
+   */
+  private _listeners: Map<string, Array<Listener<T_EventMap>>> = new Map();
+
+  private _wildcardListeners: Array<
+    Listener<{ '*': (event: EventNames<T_EventMap>, ...args: any[]) => void }>
+  > = [];
+
+  // private _wildcardListeners: Array<Listener<{}>>
   private _maxListeners = TypedEventEmitter._GLOBAL_MAX_LISTENERS;
   private _errorHandling: ErrorHandlingType = 'warn';
 
@@ -101,126 +113,151 @@ export class TypedEventEmitter<
    */
   emit<T_Event extends EventNames<T_EventMap>>(
     event: T_Event,
-    ...args: Parameters<T_EventMap[T_Event]>
+    ...args: EventParams<T_EventMap, T_Event>
   ): boolean {
-    return this._emit(event, ...args);
+    return this._emit({
+      event,
+      args,
+      emitWildcardEvent: true,
+    });
   }
 
-  subscribe<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  subscribe<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): () => void {
     const remove = () => this._removeListener({ event, listener });
     this._addListener({ event, listener });
     return remove;
   }
 
-  on<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  on<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this._addListener({ event, listener });
   }
 
-  once<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  once<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     const remove = () => this._removeListener({ event, listener });
-    const wrappedListener = ((...args: Parameters<AllEvents<T_EventMap>[T_Event]>) => {
+    const wrappedListener = ((...args: EventParamsCombined<T_EventMap, T_Event>) => {
       remove();
       listener(...args);
-    }) as EventListener<AllEvents<T_EventMap>, T_Event>;
+    }) as EventListenerCombined<T_EventMap, T_Event>;
 
     return this._addListener({ event, listener, wrappedListener });
   }
 
-  subscribeOnce<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  subscribeOnce<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): () => void {
     const remove = () => this._removeListener({ event, listener });
-    const wrappedListener = ((...args: Parameters<AllEvents<T_EventMap>[T_Event]>) => {
+    const wrappedListener = ((...args: EventParamsCombined<T_EventMap, T_Event>) => {
       remove();
       listener(...args);
-    }) as EventListener<AllEvents<T_EventMap>, T_Event>;
+    }) as EventListenerCombined<T_EventMap, T_Event>;
 
     this._addListener({ event, listener, wrappedListener });
     return remove;
   }
 
-  addListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  addListener<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this.on(event, listener);
   }
 
-  prependListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  prependListener<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this._addListener({ event, listener, prepend: true });
   }
 
-  prependOnceListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  prependOnceListener<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
-    const wrappedListener = ((...args: Parameters<AllEvents<T_EventMap>[T_Event]>) => {
+    const wrappedListener = ((...args: EventParamsCombined<T_EventMap, T_Event>) => {
       this.off(event, wrappedListener);
       listener(...args);
-    }) as EventListener<AllEvents<T_EventMap>, T_Event>;
+    }) as EventListenerCombined<T_EventMap, T_Event>;
 
     return this._addListener({ event, listener, wrappedListener, prepend: true });
   }
 
-  off<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  off<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this._removeListener({ event, listener });
   }
 
-  removeListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  removeListener<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+    listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this._removeListener({ event, listener });
   }
 
-  removeAllListeners(event?: EventNames<AllEvents<T_EventMap>>): this {
-    if (event) {
+  removeAllListeners(event?: EventNamesCombined<T_EventMap>): this {
+    if (event === '*') {
+      this._wildcardListeners = [];
+    } else if (event) {
       this._listeners.delete(event);
     } else {
+      this._wildcardListeners = [];
       this._listeners.clear();
     }
     return this;
   }
 
-  listenerCount(event: EventNames<AllEvents<T_EventMap>>): number {
-    return this._listeners.get(event)?.length ?? 0;
+  listenerCount(event?: EventNamesCombined<T_EventMap>): number {
+    if (event === '*') {
+      return this._wildcardListeners.length;
+    } else if (event) {
+      return this._listeners.get(event)?.length ?? 0;
+    } else {
+      let count = this._wildcardListeners.length;
+      this._listeners.forEach((group) => {
+        count += group.length;
+      });
+      return count;
+    }
   }
 
   eventNames() {
     return [...this._listeners.keys()];
   }
 
-  listeners<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+  listeners<T_Event extends EventNamesCombined<T_EventMap>>(
     event: T_Event,
-  ): EventListener<AllEvents<T_EventMap>, T_Event>[] {
+  ): EventListenerCombined<T_EventMap, T_Event>[] {
+    if (event === '*') {
+      const listeners = this._wildcardListeners;
+      return listeners.map((x) => x.wrappedListener) as EventListenerCombined<
+        T_EventMap,
+        T_Event
+      >[];
+    }
+
     const listeners = this._listeners.get(event) || [];
-    return listeners.map((x) => x.wrappedListener) as EventListener<
-      AllEvents<T_EventMap>,
-      T_Event
-    >[];
+    return listeners.map((x) => x.wrappedListener) as EventListenerCombined<T_EventMap, T_Event>[];
   }
 
-  rawListeners<T_Event extends EventNames<AllEvents<T_EventMap>>>(
-    event: T_Event,
-  ): EventListener<AllEvents<T_EventMap>, T_Event>[] {
+  rawListeners<T_Event extends EventNamesCombined<T_EventMap>>(event: T_Event) {
+    if (event === '*') {
+      const listeners = this._wildcardListeners;
+      return listeners.map((x) => x.rawListener) as EventListenerCombined<T_EventMap, T_Event>[];
+    }
+
     const listeners = this._listeners.get(event) || [];
-    return listeners.map((x) => x.rawListener) as EventListener<AllEvents<T_EventMap>, T_Event>[];
+    return listeners.map((x) => x.rawListener) as EventListenerCombined<T_EventMap, T_Event>[];
   }
 
   asEventSource(): EventSource<T_EventMap> {
@@ -230,59 +267,102 @@ export class TypedEventEmitter<
   //-------------------------------------------------------
   //-- utilities
   //-------------------------------------------------------
+  private _handleListenerException(event: EventNamesCombined<T_EventMap>, err: unknown) {
+    let shouldThrow = false;
+
+    try {
+      if (typeof this._errorHandling === 'function') {
+        this._errorHandling(event, err);
+      } else if (this._errorHandling === 'throw') {
+        shouldThrow = true;
+      } else {
+        const msg = `[TypedEventEmitter] listener error on "${event}":`;
+        switch (this._errorHandling) {
+          case 'ignore':
+            break;
+          case 'log':
+            console.log(msg, err);
+            break;
+          case 'warn':
+            console.warn(msg, err);
+            break;
+          case 'error':
+            console.error(msg, err);
+            break;
+
+          default:
+            break;
+        }
+      }
+    } catch {
+      // this is enough!
+    }
+
+    // decided to rethrow !
+    if (shouldThrow) {
+      throw err;
+    }
+  }
+
+  /** Allows only internal events. */
+  private _emitInternal<Event extends EventNames<ReservedEvents<T_EventMap>>>(
+    event: Event,
+    ...args: EventParams<ReservedEvents<T_EventMap>, Event>
+  ) {
+    return this._emit({
+      event,
+      args,
+      emitWildcardEvent: false,
+    });
+  }
 
   /** allows also internal events ("newListener", "removeListener", etc) */
-  private _emit<T_Event extends EventNames<AllEvents<T_EventMap>>>(
-    event: T_Event,
-    ...args: Parameters<AllEvents<T_EventMap>[T_Event]>
-  ): boolean {
+  private _emit<T_Event extends EventNamesCombined<T_EventMap>>(params: {
+    event: T_Event;
+    args: EventParamsCombined<T_EventMap, T_Event>;
+    emitWildcardEvent: boolean;
+  }): boolean {
+    const { event, args, emitWildcardEvent } = params;
+
+    if (event === '*') {
+      throw Error(
+        `emitting wildcard event ("*") in not allowed. it's automatically sent to listeners on all user events`,
+      );
+    }
+
+    //fire all wildcard ("*") listeners
+    if (emitWildcardEvent) {
+      const listeners = this._wildcardListeners.map((x) => x.wrappedListener);
+
+      for (const listener of listeners) {
+        try {
+          listener(event, ...args);
+        } catch (err) {
+          this._handleListenerException('*', err);
+        }
+      }
+    }
+
+    //now the actual listeners
     const listeners = this.listeners(event);
-    if (listeners.length === 0) return false;
+    if (listeners.length === 0) {
+      return false;
+    }
 
     for (const listener of listeners) {
       try {
         listener(...args);
       } catch (err) {
-        //error handling according to set behaviour
-        if (typeof this._errorHandling === 'function') {
-          this._errorHandling(event, err);
-        } else if (this._errorHandling === 'throw') {
-          throw err;
-        } else {
-          const msg = `[TypedEventEmitter] listener error on "${event}":`;
-          switch (this._errorHandling) {
-            case 'ignore':
-              break;
-            case 'log':
-              console.log(msg, err);
-              break;
-            case 'warn':
-              console.warn(msg, err);
-              break;
-            case 'error':
-              console.error(msg, err);
-              break;
-
-            default:
-              break;
-          }
-        }
+        this._handleListenerException(event, err);
       }
     }
     return true;
   }
-  /** Allows only internal events. */
-  private _emitInternal<Event extends EventNames<BaseEvents<T_EventMap>>>(
-    event: Event,
-    ...args: EventParams<BaseEvents<T_EventMap>, Event>
-  ) {
-    return this._emit(event, ...args);
-  }
 
-  private _addListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(params: {
+  private _addListener<T_Event extends EventNamesCombined<T_EventMap>>(params: {
     event: T_Event;
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>;
-    wrappedListener?: EventListener<AllEvents<T_EventMap>, T_Event>;
+    listener: EventListenerCombined<T_EventMap, T_Event>;
+    wrappedListener?: EventListenerCombined<T_EventMap, T_Event>;
     prepend?: boolean;
   }): this {
     const { event, listener } = params;
@@ -291,9 +371,28 @@ export class TypedEventEmitter<
     prepend = prepend ?? false;
 
     //fire (internal event)
-    if (event !== 'newListener' && event !== 'removeListener') {
+    if (!isReservedEventName(event)) {
       this._emitInternal('newListener', event, listener);
     }
+
+    //-- ITS THE WILDCARD EVENTS
+
+    if (event === '*') {
+      //add
+      const container = {
+        rawListener: listener,
+        wrappedListener: wrappedListener,
+      };
+
+      if (prepend) {
+        this._wildcardListeners = [container, ...this._wildcardListeners];
+      } else {
+        this._wildcardListeners = [...this._wildcardListeners, container];
+      }
+      return this;
+    }
+
+    //-- ITS A REGULAR EVENT
 
     //get or create list
     let listeners = this._listeners.get(event);
@@ -305,7 +404,7 @@ export class TypedEventEmitter<
     const container = {
       rawListener: listener,
       wrappedListener: wrappedListener,
-    } as Listener<AllEvents<T_EventMap>>;
+    } as Listener<T_EventMap>;
 
     if (prepend) {
       listeners = [container, ...listeners];
@@ -323,11 +422,27 @@ export class TypedEventEmitter<
     return this;
   }
   //-------------------------------------------------------
-  private _removeListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(params: {
+  private _removeListener<T_Event extends EventNamesCombined<T_EventMap>>(params: {
     event: T_Event;
-    listener: EventListener<AllEvents<T_EventMap>, T_Event>;
+    listener: EventListenerCombined<T_EventMap, T_Event>;
   }): this {
     const { event, listener } = params;
+
+    //-- ITS THE WILDCARD EVENTS
+
+    if (event === '*') {
+      const idx = this._wildcardListeners.findIndex(
+        (x) => x.rawListener === listener || x.wrappedListener === listener,
+      );
+      if (idx !== -1) {
+        // splice is in place. no need to update the ref.
+        this._wildcardListeners.splice(idx, 1);
+      }
+
+      return this;
+    }
+
+    //-- ITS A REGULAR EVENT
 
     const listeners = this._listeners.get(event) ?? [];
     // first match goes
@@ -340,7 +455,7 @@ export class TypedEventEmitter<
       listeners.splice(idx, 1);
 
       //fire (internal event)
-      if (event !== 'newListener' && event !== 'removeListener') {
+      if (!isReservedEventName(event)) {
         this._emitInternal('removeListener', event, listener);
       }
     }
