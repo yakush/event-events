@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "label": "npm: test",
+      "detail": "run all tests",
+      "options": {
+        "statusbar": {
+          "backgroundColor": "statusBarItem.warningBackground"
+        }
+      }
+    }
+  ]
+}
