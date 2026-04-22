@@ -5,3 +5,5 @@ coverage/
 .env
 .env.*
 CLAUDE.local.md
+
+__local_tests/

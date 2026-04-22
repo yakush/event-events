@@ -41,7 +41,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
   ): boolean {
     // NOTE - user can only emit his events, not the internal ones ("newListener", "removeListener" ,etc)
     // thats why using [T_EventMap] and not [ALL_EVENTS<T_EventMap>]
-    
+
     return this._emit(event, ...args);
   }
 
@@ -189,7 +189,10 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     prepend = prepend ?? false;
 
     //fire (internal event)
-    this._emitInternal('newListener', event, listener);
+    // in _addListener, before firing:
+    if (event !== 'newListener' && event !== 'removeListener') {
+      this._emitInternal('newListener', event, listener);
+    }
 
     //get or create list
     let listeners = this._listeners.get(event);
@@ -237,7 +240,9 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
       listeners.splice(idx, 1);
 
       //fire (internal event)
-      this._emitInternal('removeListener', event, listener);
+      if (event !== 'newListener' && event !== 'removeListener') {
+        this._emitInternal('removeListener', event, listener);
+      }
     }
     //prune if empty
     if (listeners.length === 0) {
