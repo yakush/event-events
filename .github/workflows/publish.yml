@@ -19,9 +19,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
-      # Ensure you have the required npm version
-      - run: npm install -g npm@latest
-
       - run: npm ci
       - run: npm run build
       - run: npm publish
