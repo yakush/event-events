@@ -1,7 +1,7 @@
 {
   "name": "events-events",
   "version": "0.1.0",
-  "description": "Fully typed TypeScript event emitter with priority, wildcard, once, and async/await support",
+  "description": "Fully typed TypeScript event emitter with wildcard, once, and async/await support",
   "license": "MIT",
   "author": "its.yak@gmail.com",
   "type": "module",

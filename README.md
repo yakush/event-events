@@ -58,7 +58,37 @@ emitter.prependOnceListener('event', listener)
 // Returns an unsubscribe function
 const unsub = emitter.subscribe('event', listener);
 unsub(); // removes the listener
+
+// Returns an unsubscribe function, fires only once
+const unsub = emitter.subscribeOnce('event', listener);
+unsub(); // cancel before it fires
 ```
+
+### Wildcard listeners
+
+Listen to every user event with `'*'`. The listener receives the event name followed by its args:
+
+```ts
+emitter.on('*', (event, ...args) => {
+  console.log(`[${event}]`, args);
+});
+```
+
+All subscribe methods (`on`, `once`, `subscribe`, `subscribeOnce`, etc.) accept `'*'`. Wildcard listeners fire before regular listeners. Internal events (`newListener`, `removeListener`) do not trigger wildcards.
+
+### Waiting for an event
+
+```ts
+// Resolves with the event's args as a tuple on the next emit
+const [userId] = await emitter.waitFor('userJoined');
+
+// With a timeout (Node ≥ 18)
+const [userId] = await emitter.waitFor('userJoined', {
+  signal: AbortSignal.timeout(5000),
+});
+```
+
+The promise rejects with `Error('aborted')` if the signal fires before the event. Passing an already-aborted signal rejects immediately.
 
 ### Emitting
 
