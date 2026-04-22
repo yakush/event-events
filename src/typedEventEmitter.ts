@@ -2,7 +2,7 @@ import type { EventSource } from './eventSource.js';
 import type { AllEvents } from './internal/types.js';
 import type {
   BaseEvents,
-  constructionParams as ConstructionParams,
+  ConstructionParams,
   ErrorHandlingType,
   EventListener,
   EventMap,
@@ -255,7 +255,7 @@ export class TypedEventEmitter<
     }
     return true;
   }
-  /** allows only internal events */
+  /** Allows only internal events. */
   private _emitInternal<Event extends EventNames<BaseEvents<T_EventMap>>>(
     event: Event,
     ...args: EventParams<BaseEvents<T_EventMap>, Event>
@@ -275,7 +275,6 @@ export class TypedEventEmitter<
     prepend = prepend ?? false;
 
     //fire (internal event)
-    // in _addListener, before firing:
     if (event !== 'newListener' && event !== 'removeListener') {
       this._emitInternal('newListener', event, listener);
     }
@@ -301,10 +300,9 @@ export class TypedEventEmitter<
 
     const ignoreLimit = this._maxListeners === 0 || this._maxListeners === Infinity;
     if (!ignoreLimit && listeners.length > this._maxListeners) {
-      console.warn(`
-        MaxListenersExceededWarning: Possible EventEmitter memory leak detected.\n
-        ${listeners.length} ${event} listeners added to [EventEmitter]. Use setMaxListeners() to increase limit
-        `);
+      console.warn(
+        `MaxListenersExceededWarning: Possible EventEmitter memory leak detected.\n${listeners.length} ${event} listeners added to [EventEmitter]. Use setMaxListeners() to increase limit`,
+      );
     }
     return this;
   }
@@ -321,7 +319,7 @@ export class TypedEventEmitter<
     const idx = listeners.findIndex(
       (x) => x.rawListener === listener || x.wrappedListener === listener,
     );
-    if (idx != -1) {
+    if (idx !== -1) {
       // splice is in place. no need to update the ref.
       listeners.splice(idx, 1);
 

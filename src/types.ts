@@ -24,7 +24,7 @@ export type ErrorHandlingType =
   | 'throw'
   | ((event: string, err: unknown) => void);
 
-export type constructionParams = {
+export type ConstructionParams = {
   maxListeners?: number;
   errorHandling?: ErrorHandlingType;
 };
