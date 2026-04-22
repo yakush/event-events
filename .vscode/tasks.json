@@ -12,6 +12,18 @@
           "backgroundColor": "statusBarItem.warningBackground"
         }
       }
+    },
+    {
+      "type": "npm",
+      "script": "prepublishOnly",
+      "problemMatcher": [],
+      "label": "npm: prepublish",
+      "detail": "verify everything",
+      "options": {
+        "statusbar": {
+          "backgroundColor": "statusBarItem.warningBackground"
+        }
+      }
     }
   ]
 }
