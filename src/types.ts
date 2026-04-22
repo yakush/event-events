@@ -1,19 +1,16 @@
+export type BaseEvents<T_EventMap extends EventMap = EventMap> = {
+  newListener: (event: EventNames<T_EventMap>, listener: (...args: any[]) => void) => void;
+  removeListener: (event: EventNames<T_EventMap>, listener: (...args: any[]) => void) => void;
+};
+
 export type EventMap = {
-  [event: string]: (...args: unknown[]) => void;
+  [event: string]: (...args: any[]) => void;
 };
 
 export type EventListener<
   T_EventMap extends EventMap,
   T_Event extends EventNames<T_EventMap>,
 > = T_EventMap[T_Event];
-
-//-------------------------------------------------------
-// defaults
-//-------------------------------------------------------
-
-export type DefaultEventMap = EventMap & {
-  [event: string]: (...args: unknown[]) => void;
-};
 
 //-------------------------------------------------------
 // util types
