@@ -28,7 +28,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run --reporter=verbose",
+    "test": "vitest run",
     "test:watch": "vitest --reporter=verbose",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
