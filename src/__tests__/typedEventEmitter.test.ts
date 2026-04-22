@@ -426,7 +426,9 @@ describe('TypedEventEmitter', () => {
       const next = vi.fn();
       const err = new Error('boom');
 
-      emitter.on('greet', () => { throw err; });
+      emitter.on('greet', () => {
+        throw err;
+      });
       emitter.on('greet', next);
       emitter.emit('greet', 'Alice');
 

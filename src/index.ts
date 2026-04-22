@@ -1,9 +1,4 @@
-export function testMe(fail: boolean) {
-  if (fail) {
-    throw Error('oops');
-  }
+export * from './eventSource.js';
+export * from './typedEventEmitter.js';
+export * from './types.js';
 
-  return "OK"
-}
-
-export {};
