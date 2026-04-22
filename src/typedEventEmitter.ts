@@ -21,6 +21,22 @@ type ListenersMap<T_EventMap extends EventMap> = Map<string, Array<Listener<T_Ev
 
 type AllEvents<T_EventMap extends EventMap> = T_EventMap & BaseEvents<T_EventMap>;
 
+/**
+ * A fully typed event emitter. Pass your event map as the type parameter to get
+ * compile-time safety on event names and listener signatures.
+ *
+ * @example
+ * ```ts
+ * type AppEvents = {
+ *   userJoined: (userId: string) => void;
+ *   scoreChanged: (userId: string, score: number) => void;
+ * };
+ *
+ * const emitter = new TypedEventEmitter<AppEvents>();
+ * emitter.on('userJoined', (id) => console.log(id));
+ * emitter.emit('userJoined', 'alice');
+ * ```
+ */
 export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
   private static _GLOBAL_MAX_LISTENERS = 10;
 
@@ -28,6 +44,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
   private _maxListeners = TypedEventEmitter._GLOBAL_MAX_LISTENERS;
   private _errorHandling: ErrorHandlingType = 'warn';
 
+  /** Default max listeners for all new instances. Set to `0` or `Infinity` to disable. */
   static set defaultMaxListeners(value: number) {
     this._GLOBAL_MAX_LISTENERS = value;
   }
@@ -35,11 +52,13 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._GLOBAL_MAX_LISTENERS;
   }
 
+  /** Sets the max listener threshold for this instance. Returns `this` for chaining. */
   setMaxListeners(n: number) {
     this._maxListeners = n;
     return this;
   }
 
+  /** Returns the current max listener threshold for this instance. */
   getMaxListeners() {
     return this._maxListeners;
   }
@@ -51,25 +70,50 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
   }
   //-------------------------------------------------------
 
+  /**
+   * Sets how listener exceptions are handled. Returns `this` for chaining.
+   *
+   * - `'warn'` — `console.warn` (default)
+   * - `'log'` — `console.log`
+   * - `'error'` — `console.error`
+   * - `'ignore'` — swallow silently
+   * - `'throw'` — rethrow; remaining listeners are not called
+   * - `(event, err) => void` — custom handler
+   */
   setErrorHandling(e: ErrorHandlingType) {
     this._errorHandling = e;
     return this;
   }
 
+  /** Returns the current error handling mode. */
   getErrorHandling() {
     return this._errorHandling;
   }
 
+  /**
+   * Emits an event, calling all registered listeners in order.
+   * Returns `true` if at least one listener was called, `false` otherwise.
+   *
+   * Only user-defined events can be emitted — internal events (`newListener`,
+   * `removeListener`) are fired automatically by the emitter.
+   */
   emit<T_Event extends EventNames<T_EventMap>>(
     event: T_Event,
     ...args: Parameters<T_EventMap[T_Event]>
   ): boolean {
-    // NOTE - user can only emit his events, not the internal ones ("newListener", "removeListener" ,etc)
-    // thats why using [T_EventMap] and not [ALL_EVENTS<T_EventMap>]
-
     return this._emit(event, ...args);
   }
 
+  /**
+   * Adds a listener and returns an unsubscribe function.
+   * Calling the returned function removes the listener.
+   *
+   * @example
+   * ```ts
+   * const unsub = emitter.subscribe('click', handler);
+   * unsub(); // removes the listener
+   * ```
+   */
   subscribe<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -78,6 +122,10 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return () => this.off(event, listener);
   }
 
+  /**
+   * Adds a listener for the given event. The same function can be added multiple
+   * times and will be called once per registration. Returns `this` for chaining.
+   */
   on<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -85,6 +133,10 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._addListener({ event, listener });
   }
 
+  /**
+   * Adds a one-time listener. It is automatically removed after the first time
+   * the event is emitted. Returns `this` for chaining.
+   */
   once<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -97,6 +149,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._addListener({ event, listener, wrappedListener });
   }
 
+  /** Alias for `on()`. */
   addListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -104,6 +157,10 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this.on(event, listener);
   }
 
+  /**
+   * Adds a listener at the front of the call queue so it is called before
+   * any previously registered listeners. Returns `this` for chaining.
+   */
   prependListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -111,6 +168,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._addListener({ event, listener, prepend: true });
   }
 
+  /** Like `prependListener`, but auto-removes after the first emit. */
   prependOnceListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -123,6 +181,11 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._addListener({ event, listener, wrappedListener, prepend: true });
   }
 
+  /**
+   * Removes the first matching registration of `listener` for `event`.
+   * If the same function was registered multiple times, only the first is removed.
+   * Returns `this` for chaining.
+   */
   off<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -130,6 +193,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._removeListener({ event, listener });
   }
 
+  /** Alias for `off()`. */
   removeListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
@@ -137,6 +201,10 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this._removeListener({ event, listener });
   }
 
+  /**
+   * Removes all listeners for a specific event, or all listeners for all events
+   * if no event is specified. Returns `this` for chaining.
+   */
   removeAllListeners(event?: EventNames<AllEvents<T_EventMap>>): this {
     if (event) {
       this._listeners.delete(event);
@@ -146,10 +214,24 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     return this;
   }
 
+  /** Returns the number of listeners registered for the given event. */
+  listenerCount(event: EventNames<AllEvents<T_EventMap>>): number {
+    return this._listeners.get(event)?.length ?? 0;
+  }
+
+  /** Returns an array of event names that currently have at least one listener. */
+  eventNames() {
+    return [...this._listeners.keys()];
+  }
+
+  /**
+   * Returns the wrapped listener functions for the given event — these include
+   * the auto-remove logic injected by `once()` and `prependOnceListener()`.
+   * Use `rawListeners()` to get the original functions.
+   */
   listeners<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
   ): EventListener<AllEvents<T_EventMap>, T_Event>[] {
-    //return the wrapped  - extra functionality is executed
     const listeners = this._listeners.get(event) || [];
     return listeners.map((x) => x.wrappedListener) as EventListener<
       AllEvents<T_EventMap>,
@@ -157,20 +239,12 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
     >[];
   }
 
+  /** Returns the original listener functions, without any once-wrapper logic. */
   rawListeners<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,
   ): EventListener<AllEvents<T_EventMap>, T_Event>[] {
-    //return the raw - no extra functionality is executed
     const listeners = this._listeners.get(event) || [];
     return listeners.map((x) => x.rawListener) as EventListener<AllEvents<T_EventMap>, T_Event>[];
-  }
-
-  listenerCount(event: EventNames<AllEvents<T_EventMap>>): number {
-    return this._listeners.get(event)?.length ?? 0;
-  }
-
-  eventNames() {
-    return [...this._listeners.keys()];
   }
 
   //-------------------------------------------------------
