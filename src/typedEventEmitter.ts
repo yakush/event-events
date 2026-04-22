@@ -183,8 +183,10 @@ export class TypedEventEmitter<
     event: T_Event,
     listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
+    const remove = () => this._removeListener({ event, listener });
+
     const wrappedListener = ((...args: EventParamsCombined<T_EventMap, T_Event>) => {
-      this.off(event, wrappedListener);
+      remove();
       listener(...args);
     }) as EventListenerCombined<T_EventMap, T_Event>;
 
@@ -203,6 +205,36 @@ export class TypedEventEmitter<
     listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this {
     return this._removeListener({ event, listener });
+  }
+
+  waitFor<T_Event extends EventNamesCombined<T_EventMap>>(
+    event: T_Event,
+    params?: { signal: AbortSignal },
+  ): Promise<EventParamsCombined<T_EventMap, T_Event>> {
+    return new Promise((resolve, reject) => {
+      const signal = params?.signal;
+
+      // premature abortion
+      if (signal?.aborted) {
+        reject(new Error('aborted'));
+        return;
+      }
+
+      // handle bort
+      const onAbort = () => {
+        unsubscribe();
+        reject(new Error('aborted'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+
+      // register event (once)
+      const listener = ((...args: EventParamsCombined<T_EventMap, T_Event>) => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve(args);
+      }) as EventListenerCombined<T_EventMap, T_Event>;
+
+      const unsubscribe = this.subscribeOnce(event, listener);
+    });
   }
 
   removeAllListeners(event?: EventNamesCombined<T_EventMap>): this {

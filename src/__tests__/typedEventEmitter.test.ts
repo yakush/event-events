@@ -658,4 +658,71 @@ describe('TypedEventEmitter', () => {
       expect(emitter.rawListeners('*')).toEqual([listener1, listener2]);
     });
   });
+
+  // -------------------------------------------------------
+  // 11. waitFor
+  // -------------------------------------------------------
+  describe('async', () => {
+    it('resolves with the event args when the event fires', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const promise = emitter.waitFor('greet');
+      emitter.emit('greet', 'Alice');
+
+      expect(await promise).toEqual(['Alice']);
+    });
+
+    it('resolves only once — listener is removed after the first emit', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const promise = emitter.waitFor('greet');
+      emitter.emit('greet', 'Alice');
+      await promise;
+
+      expect(emitter.listenerCount('greet')).toBe(0);
+    });
+
+    it('rejects when the AbortSignal is aborted', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const controller = new AbortController();
+
+      const promise = emitter.waitFor('greet', { signal: controller.signal });
+      controller.abort();
+
+      await expect(promise).rejects.toThrow('aborted');
+    });
+
+    it('rejects immediately when given an already-aborted signal', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const controller = new AbortController();
+      controller.abort();
+
+      const promise = emitter.waitFor('greet', { signal: controller.signal });
+
+      await expect(promise).rejects.toThrow('aborted');
+    });
+
+    it('aborting after event fires does not double-reject', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const controller = new AbortController();
+
+      const promise = emitter.waitFor('greet', { signal: controller.signal });
+      emitter.emit('greet', 'Alice');
+      await promise;
+
+      // aborting after resolution should have no effect
+      expect(() => { controller.abort(); }).not.toThrow();
+    });
+
+    it('aborting removes the listener', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const controller = new AbortController();
+
+      const promise = emitter.waitFor('greet', { signal: controller.signal });
+      controller.abort();
+
+      await promise.catch(() => {});
+      expect(emitter.listenerCount('greet')).toBe(0);
+    });
+  });
 });

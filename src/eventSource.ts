@@ -1,4 +1,8 @@
-import type { EventListenerCombined, EventNamesCombined } from './internal/types.js';
+import type {
+  EventListenerCombined,
+  EventNamesCombined,
+  EventParamsCombined,
+} from './internal/types.js';
 import type { EventMap } from './types.js';
 
 export interface EventSource<T_EventMap extends EventMap = EventMap> {
@@ -81,6 +85,30 @@ export interface EventSource<T_EventMap extends EventMap = EventMap> {
     event: T_Event,
     listener: EventListenerCombined<T_EventMap, T_Event>,
   ): this;
+
+  /**
+   * Returns a `Promise` that resolves with the event's arguments the next time
+   * the event fires, then auto-removes the listener.
+   *
+   * Pass an `AbortSignal` to cancel the wait — the promise will reject with an
+   * `Error('aborted')`. If the signal is already aborted when `waitFor` is
+   * called, the promise rejects immediately.
+   *
+   * @example
+   * ```ts
+   * // basic
+   * const [userId] = await emitter.waitFor('userJoined');
+   *
+   * // with timeout (Node ≥ 18)
+   * const [userId] = await emitter.waitFor('userJoined', {
+   *   signal: AbortSignal.timeout(5000),
+   * });
+   * ```
+   */
+  waitFor<T_Event extends EventNamesCombined<T_EventMap>>(
+    event: T_Event,
+    params?: { signal: AbortSignal },
+  ): Promise<EventParamsCombined<T_EventMap, T_Event>>;
 
   /**
    * Removes all listeners for a specific event, or all listeners for all events
