@@ -110,8 +110,9 @@ export class TypedEventEmitter<
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
   ): () => void {
+    const remove = () => this._removeListener({ event, listener });
     this._addListener({ event, listener });
-    return () => this.off(event, listener);
+    return remove;
   }
 
   on<T_Event extends EventNames<AllEvents<T_EventMap>>>(
@@ -125,12 +126,27 @@ export class TypedEventEmitter<
     event: T_Event,
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
   ): this {
+    const remove = () => this._removeListener({ event, listener });
     const wrappedListener = ((...args: Parameters<AllEvents<T_EventMap>[T_Event]>) => {
-      this.off(event, wrappedListener);
+      remove();
       listener(...args);
     }) as EventListener<AllEvents<T_EventMap>, T_Event>;
 
     return this._addListener({ event, listener, wrappedListener });
+  }
+
+  subscribeOnce<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+    event: T_Event,
+    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+  ): () => void {
+    const remove = () => this._removeListener({ event, listener });
+    const wrappedListener = ((...args: Parameters<AllEvents<T_EventMap>[T_Event]>) => {
+      remove();
+      listener(...args);
+    }) as EventListener<AllEvents<T_EventMap>, T_Event>;
+
+    this._addListener({ event, listener, wrappedListener });
+    return remove;
   }
 
   addListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(

@@ -35,6 +35,16 @@ export interface EventSource<T_EventMap extends EventMap = EventMap> {
     listener: EventListener<AllEvents<T_EventMap>, T_Event>,
   ): this;
 
+  /**
+   * Adds a one-time listener. It is automatically removed after the first time
+   * Calling the returned function removes the listener.
+   * (whichever happens first )
+   */
+  subscribeOnce<T_Event extends EventNames<AllEvents<T_EventMap>>>(
+    event: T_Event,
+    listener: EventListener<AllEvents<T_EventMap>, T_Event>,
+  ): () => void;
+
   /** Alias for `on()`. */
   addListener<T_Event extends EventNames<AllEvents<T_EventMap>>>(
     event: T_Event,

@@ -95,7 +95,50 @@ describe('TypedEventEmitter', () => {
   });
 
   // -------------------------------------------------------
-  // 3. multiple events — only correct listeners triggered
+  // 3. subscribeOnce — fires once, returns unsubscribe fn
+  // -------------------------------------------------------
+  describe('subscribeOnce', () => {
+    it('calls listener on first emit then auto-removes', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      emitter.subscribeOnce('greet', (name) => calls.push(name));
+      emitter.emit('greet', 'Alice');
+      emitter.emit('greet', 'Bob');
+
+      expect(calls).toEqual(['Alice']);
+    });
+
+    it('calling the returned unsubscribe fn before emit prevents the listener from ever firing', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      const unsubscribe = emitter.subscribeOnce('greet', (name) => calls.push(name));
+      unsubscribe();
+      emitter.emit('greet', 'Alice');
+
+      expect(calls).toEqual([]);
+    });
+
+    it('calling unsubscribe after the listener already fired does not throw', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const unsubscribe = emitter.subscribeOnce('greet', () => {});
+      emitter.emit('greet', 'Alice');
+      expect(() => { unsubscribe(); }).not.toThrow();
+    });
+
+    it('calling unsubscribe twice does not throw', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const unsubscribe = emitter.subscribeOnce('greet', () => {});
+      expect(() => {
+        unsubscribe();
+        unsubscribe();
+      }).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------
+  // 4. multiple events — only correct listeners triggered
   // -------------------------------------------------------
   describe('event isolation', () => {
     it('does not call listeners of other events', () => {
