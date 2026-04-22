@@ -1,4 +1,12 @@
-import type { BaseEvents, EventListener, EventMap, EventNames, EventParams } from './types.js';
+import type {
+  BaseEvents,
+  constructionParams as ConstructionParams,
+  ErrorHandlingType,
+  EventListener,
+  EventMap,
+  EventNames,
+  EventParams,
+} from './types.js';
 
 /**
  * container: { listener + metadata}
@@ -18,6 +26,7 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
 
   private _listeners: ListenersMap<AllEvents<T_EventMap>> = new Map();
   private _maxListeners = TypedEventEmitter._GLOBAL_MAX_LISTENERS;
+  private _errorHandling: ErrorHandlingType = 'warn';
 
   static set defaultMaxListeners(value: number) {
     this._GLOBAL_MAX_LISTENERS = value;
@@ -33,6 +42,22 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
 
   getMaxListeners() {
     return this._maxListeners;
+  }
+
+  //-------------------------------------------------------
+  constructor(params?: ConstructionParams) {
+    this._maxListeners = params?.maxListeners ?? TypedEventEmitter.defaultMaxListeners;
+    this._errorHandling = params?.errorHandling ?? 'warn';
+  }
+  //-------------------------------------------------------
+
+  setErrorHandling(e: ErrorHandlingType) {
+    this._errorHandling = e;
+    return this;
+  }
+
+  getErrorHandling() {
+    return this._errorHandling;
   }
 
   emit<T_Event extends EventNames<T_EventMap>>(
@@ -164,7 +189,30 @@ export class TypedEventEmitter<T_EventMap extends EventMap = EventMap> {
       try {
         listener(...args);
       } catch (err) {
-        console.error(`[TypedEventEmitter] listener error on "${event}":`, err);
+        //error handling according to set behaviour
+        if (typeof this._errorHandling === 'function') {
+          this._errorHandling(event, err);
+        } else if (this._errorHandling === 'throw') {
+          throw err;
+        } else {
+          const msg = `[TypedEventEmitter] listener error on "${event}":`;
+          switch (this._errorHandling) {
+            case 'ignore':
+              break;
+            case 'log':
+              console.log(msg, err);
+              break;
+            case 'warn':
+              console.warn(msg, err);
+              break;
+            case 'error':
+              console.error(msg, err);
+              break;
+
+            default:
+              break;
+          }
+        }
       }
     }
     return true;

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TypedEventEmitter } from '../typedEventEmitter.js';
 
 type TestEvents = {
@@ -281,7 +281,7 @@ describe('TypedEventEmitter', () => {
   // 8. newListener / removeListener internal events
   // -------------------------------------------------------
   describe('newListener / removeListener events', () => {
-    it('fires newListener before a listener is added', () => {
+    it('fires newListener when a user listener is added', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
       const log: string[] = [];
 
@@ -292,7 +292,7 @@ describe('TypedEventEmitter', () => {
       expect(log).toEqual(['added:greet', 'added:count']);
     });
 
-    it('fires removeListener after a listener is removed', () => {
+    it('fires removeListener when a user listener is removed', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
       const log: string[] = [];
       const listener = () => {};
@@ -309,50 +309,147 @@ describe('TypedEventEmitter', () => {
       const removed = vi.fn();
 
       emitter.on('removeListener', removed);
-      emitter.off('greet', () => {}); // nothing registered, nothing to remove
+      emitter.off('greet', () => {});
 
       expect(removed).not.toHaveBeenCalled();
+    });
+
+    it('subscribing to newListener does not self-trigger', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('newListener', handler);
+
+      // the registration of 'newListener' itself should NOT have fired handler
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('unsubscribing from removeListener does not self-trigger', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const handler = vi.fn();
+
+      emitter.on('removeListener', handler);
+      emitter.off('removeListener', handler);
+
+      // the removal of 'removeListener' itself should NOT have fired handler
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 
   // -------------------------------------------------------
-  // 9. exceptions — logged, next listeners still called
+  // 9. error handling modes
   // -------------------------------------------------------
-  describe('listener exceptions', () => {
-    beforeEach(() => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-    });
-
+  describe('error handling', () => {
     afterEach(() => {
       vi.restoreAllMocks();
     });
 
-    it('logs the error and continues calling remaining listeners', () => {
+    const throwing = () => {
+      throw new Error('boom');
+    };
+
+    it('default mode is warn', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
-      const calls: string[] = [];
-
-      emitter.on('greet', () => {
-        throw new Error('boom');
-      });
-      emitter.on('greet', (name) => calls.push(name));
-
-      expect(() => emitter.emit('greet', 'Alice')).not.toThrow();
-      expect(calls).toEqual(['Alice']);
-      expect(console.error).toHaveBeenCalledOnce();
+      expect(emitter.getErrorHandling()).toBe('warn');
     });
 
-    it('logs an error per throwing listener', () => {
-      const emitter = new TypedEventEmitter<TestEvents>();
+    it('warn mode — calls console.warn and continues', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'warn' });
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const next = vi.fn();
 
-      emitter.on('greet', () => {
-        throw new Error('first');
-      });
-      emitter.on('greet', () => {
-        throw new Error('second');
-      });
+      emitter.on('greet', throwing);
+      emitter.on('greet', next);
+      expect(() => emitter.emit('greet', 'Alice')).not.toThrow();
 
+      expect(warn).toHaveBeenCalledOnce();
+      expect(next).toHaveBeenCalledWith('Alice');
+    });
+
+    it('log mode — calls console.log and continues', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'log' });
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const next = vi.fn();
+
+      emitter.on('greet', throwing);
+      emitter.on('greet', next);
       emitter.emit('greet', 'Alice');
-      expect(console.error).toHaveBeenCalledTimes(2);
+
+      expect(log).toHaveBeenCalledOnce();
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('error mode — calls console.error and continues', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'error' });
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const next = vi.fn();
+
+      emitter.on('greet', throwing);
+      emitter.on('greet', next);
+      emitter.emit('greet', 'Alice');
+
+      expect(error).toHaveBeenCalledOnce();
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('ignore mode — no output, no throw, continues', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'ignore' });
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const next = vi.fn();
+
+      emitter.on('greet', throwing);
+      emitter.on('greet', next);
+      expect(() => emitter.emit('greet', 'Alice')).not.toThrow();
+
+      expect(warn).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('throw mode — rethrows and stops remaining listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'throw' });
+      const next = vi.fn();
+
+      emitter.on('greet', throwing);
+      emitter.on('greet', next);
+
+      expect(() => emitter.emit('greet', 'Alice')).toThrow('boom');
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('custom handler — called with event name and error', () => {
+      const handler = vi.fn();
+      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: handler });
+      const next = vi.fn();
+      const err = new Error('boom');
+
+      emitter.on('greet', () => { throw err; });
+      emitter.on('greet', next);
+      emitter.emit('greet', 'Alice');
+
+      expect(handler).toHaveBeenCalledWith('greet', err);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('setErrorHandling changes mode on existing instance', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      emitter.setErrorHandling('ignore');
+      expect(emitter.getErrorHandling()).toBe('ignore');
+    });
+
+    it('constructor maxListeners option is respected', () => {
+      const emitter = new TypedEventEmitter<TestEvents>({ maxListeners: 2 });
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      emitter.on('greet', () => {});
+      emitter.on('greet', () => {});
+      expect(warn).not.toHaveBeenCalled();
+
+      emitter.on('greet', () => {});
+      expect(warn).toHaveBeenCalledOnce();
     });
   });
 });

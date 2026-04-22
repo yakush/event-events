@@ -13,6 +13,22 @@ export type EventListener<
 > = T_EventMap[T_Event];
 
 //-------------------------------------------------------
+// config
+//-------------------------------------------------------
+
+export type ErrorHandlingType =
+  | 'ignore'
+  | 'log'
+  | 'warn'
+  | 'error'
+  | 'throw'
+  | ((event: string, err: unknown) => void);
+
+export type constructionParams = {
+  maxListeners?: number;
+  errorHandling?: ErrorHandlingType;
+};
+//-------------------------------------------------------
 // util types
 //-------------------------------------------------------
 
