@@ -39,7 +39,7 @@ new TypedEventEmitter(options?)
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `maxListeners` | `number` | `10` | Warning threshold per event |
-| `errorHandling` | `ErrorHandlingType` | `'warn'` | How listener exceptions are handled |
+| `listenersErrorHandling` | `ListenersErrorHandlingType` | `'warn'` | How listener exceptions are handled |
 
 ### Subscribing
 
@@ -133,13 +133,13 @@ emitter.setMaxListeners(0)        // or Infinity
 
 A `console.warn` is printed when a single event exceeds the limit. This indicates a likely listener leak, not a hard error.
 
-### Error handling
+### Listeners Error handling
 
 Controls what happens when a listener throws. Configure via constructor or at runtime:
 
 ```ts
-emitter.setErrorHandling('throw')
-emitter.getErrorHandling(): ErrorHandlingType
+emitter.setListenersErrorHandling('throw')
+emitter.getListenersErrorHandling(): ListenersErrorHandlingType
 ```
 
 | Mode | Behavior |

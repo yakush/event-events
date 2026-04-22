@@ -8,7 +8,7 @@ import {
 } from './internal/types.js';
 import type {
   ConstructionParams,
-  ErrorHandlingType,
+  ListenersErrorHandlingType,
   EventListener,
   EventMap,
   EventNames,
@@ -56,7 +56,7 @@ export class TypedEventEmitter<
 
   // private _wildcardListeners: Array<Listener<{}>>
   private _maxListeners = TypedEventEmitter._GLOBAL_MAX_LISTENERS;
-  private _errorHandling: ErrorHandlingType = 'warn';
+  private _listenersErrorHandling: ListenersErrorHandlingType = 'warn';
 
   /** Default max listeners for all new instances. Set to `0` or `Infinity` to disable. */
   static set defaultMaxListeners(value: number) {
@@ -80,7 +80,7 @@ export class TypedEventEmitter<
   //-------------------------------------------------------
   constructor(params?: ConstructionParams) {
     this._maxListeners = params?.maxListeners ?? TypedEventEmitter.defaultMaxListeners;
-    this._errorHandling = params?.errorHandling ?? 'warn';
+    this._listenersErrorHandling = params?.listenersErrorHandling ?? 'warn';
   }
   //-------------------------------------------------------
 
@@ -94,14 +94,14 @@ export class TypedEventEmitter<
    * - `'throw'` — rethrow; remaining listeners are not called
    * - `(event, err) => void` — custom handler
    */
-  setErrorHandling(e: ErrorHandlingType) {
-    this._errorHandling = e;
+  setListenersErrorHandling(e: ListenersErrorHandlingType) {
+    this._listenersErrorHandling = e;
     return this;
   }
 
   /** Returns the current error handling mode. */
-  getErrorHandling() {
-    return this._errorHandling;
+  getListenersErrorHandling() {
+    return this._listenersErrorHandling;
   }
 
   /**
@@ -303,13 +303,13 @@ export class TypedEventEmitter<
     let shouldThrow = false;
 
     try {
-      if (typeof this._errorHandling === 'function') {
-        this._errorHandling(event, err);
-      } else if (this._errorHandling === 'throw') {
+      if (typeof this._listenersErrorHandling === 'function') {
+        this._listenersErrorHandling(event, err);
+      } else if (this._listenersErrorHandling === 'throw') {
         shouldThrow = true;
       } else {
         const msg = `[TypedEventEmitter] listener error on "${event}":`;
-        switch (this._errorHandling) {
+        switch (this._listenersErrorHandling) {
           case 'ignore':
             break;
           case 'log':

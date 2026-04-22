@@ -419,11 +419,11 @@ describe('TypedEventEmitter', () => {
 
     it('default mode is warn', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
-      expect(emitter.getErrorHandling()).toBe('warn');
+      expect(emitter.getListenersErrorHandling()).toBe('warn');
     });
 
     it('warn mode — calls console.warn and continues', () => {
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'warn' });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: 'warn' });
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const next = vi.fn();
 
@@ -436,7 +436,7 @@ describe('TypedEventEmitter', () => {
     });
 
     it('log mode — calls console.log and continues', () => {
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'log' });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: 'log' });
       const log = vi.spyOn(console, 'log').mockImplementation(() => {});
       const next = vi.fn();
 
@@ -449,7 +449,7 @@ describe('TypedEventEmitter', () => {
     });
 
     it('error mode — calls console.error and continues', () => {
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'error' });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: 'error' });
       const error = vi.spyOn(console, 'error').mockImplementation(() => {});
       const next = vi.fn();
 
@@ -462,7 +462,7 @@ describe('TypedEventEmitter', () => {
     });
 
     it('ignore mode — no output, no throw, continues', () => {
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'ignore' });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: 'ignore' });
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const log = vi.spyOn(console, 'log').mockImplementation(() => {});
       const error = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -479,7 +479,7 @@ describe('TypedEventEmitter', () => {
     });
 
     it('throw mode — rethrows and stops remaining listeners', () => {
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: 'throw' });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: 'throw' });
       const next = vi.fn();
 
       emitter.on('greet', throwing);
@@ -491,7 +491,7 @@ describe('TypedEventEmitter', () => {
 
     it('custom handler — called with event name and error', () => {
       const handler = vi.fn();
-      const emitter = new TypedEventEmitter<TestEvents>({ errorHandling: handler });
+      const emitter = new TypedEventEmitter<TestEvents>({ listenersErrorHandling: handler });
       const next = vi.fn();
       const err = new Error('boom');
 
@@ -505,10 +505,10 @@ describe('TypedEventEmitter', () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it('setErrorHandling changes mode on existing instance', () => {
+    it('setListenersErrorHandling changes mode on existing instance', () => {
       const emitter = new TypedEventEmitter<TestEvents>();
-      emitter.setErrorHandling('ignore');
-      expect(emitter.getErrorHandling()).toBe('ignore');
+      emitter.setListenersErrorHandling('ignore');
+      expect(emitter.getListenersErrorHandling()).toBe('ignore');
     });
 
     it('constructor maxListeners option is respected', () => {
@@ -711,7 +711,9 @@ describe('TypedEventEmitter', () => {
       await promise;
 
       // aborting after resolution should have no effect
-      expect(() => { controller.abort(); }).not.toThrow();
+      expect(() => {
+        controller.abort();
+      }).not.toThrow();
     });
 
     it('aborting removes the listener', async () => {

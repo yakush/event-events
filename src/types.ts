@@ -23,7 +23,7 @@ export type EventParams<T_Map extends EventMap, T_Event extends EventNames<T_Map
 // config and construction
 //-------------------------------------------------------
 
-export type ErrorHandlingType =
+export type ListenersErrorHandlingType =
   | 'ignore'
   | 'log'
   | 'warn'
@@ -32,6 +32,11 @@ export type ErrorHandlingType =
   | ((event: string, err: unknown) => void);
 
 export type ConstructionParams = {
+  /** per event. \
+   * default is 10 */
   maxListeners?: number;
-  errorHandling?: ErrorHandlingType;
+
+  /** how to handle when a listener throws an error \
+   * default is "warn" */
+  listenersErrorHandling?: ListenersErrorHandlingType;
 };
