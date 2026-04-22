@@ -18,6 +18,7 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      '@typescript-eslint/no-unused-vars': ['warn'],
     },
   },
   prettierConfig,
