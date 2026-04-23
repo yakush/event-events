@@ -1,6 +1,7 @@
 # events-events
 
-> **Beta** — API is stable but the package is still early. Feedback welcome.
+> [!IMPORTANT]
+> **Beta** - API is stable but the package is still early. Feedback welcome.
 
 A fully typed TypeScript event emitter. Drop-in replacement for Node's `EventEmitter` with a generic type parameter that enforces event names and payload types at compile time.
 
@@ -27,7 +28,7 @@ emitter.on('userJoined', (userId) => {
 });
 
 emitter.emit('userJoined', 'alice'); // ✓ typed
-emitter.emit('userJoined', 42);      // ✗ TypeScript error
+emitter.emit('userJoined', 42); // ✗ TypeScript error
 ```
 
 ## API
@@ -38,24 +39,24 @@ emitter.emit('userJoined', 42);      // ✗ TypeScript error
 new TypedEventEmitter(options?)
 ```
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `maxListeners` | `number` | `10` | Warning threshold per event |
+| Option                   | Type                         | Default  | Description                         |
+| ------------------------ | ---------------------------- | -------- | ----------------------------------- |
+| `maxListeners`           | `number`                     | `10`     | Warning threshold per event         |
 | `listenersErrorHandling` | `ListenersErrorHandlingType` | `'warn'` | How listener exceptions are handled |
 
 ### Subscribing
 
 ```ts
 // Persist until manually removed
-emitter.on('event', listener)
-emitter.addListener('event', listener)   // alias for on()
+emitter.on('event', listener);
+emitter.addListener('event', listener); // alias for on()
 
 // Fire once, then auto-remove
-emitter.once('event', listener)
+emitter.once('event', listener);
 
 // Add at the front of the call queue
-emitter.prependListener('event', listener)
-emitter.prependOnceListener('event', listener)
+emitter.prependListener('event', listener);
+emitter.prependOnceListener('event', listener);
 
 // Returns an unsubscribe function
 const unsub = emitter.subscribe('event', listener);
@@ -104,10 +105,10 @@ emitter.emit('event', ...args): boolean
 ### Unsubscribing
 
 ```ts
-emitter.off('event', listener)
-emitter.removeListener('event', listener)  // alias for off()
-emitter.removeAllListeners()               // clear all events
-emitter.removeAllListeners('event')        // clear one event
+emitter.off('event', listener);
+emitter.removeListener('event', listener); // alias for off()
+emitter.removeAllListeners(); // clear all events
+emitter.removeAllListeners('event'); // clear one event
 ```
 
 ### Introspection
@@ -144,14 +145,14 @@ emitter.setListenersErrorHandling('throw')
 emitter.getListenersErrorHandling(): ListenersErrorHandlingType
 ```
 
-| Mode | Behavior |
-|---|---|
-| `'warn'` | `console.warn(...)` — default |
-| `'log'` | `console.log(...)` |
-| `'error'` | `console.error(...)` |
-| `'ignore'` | Swallow silently |
-| `'throw'` | Rethrow — remaining listeners are not called |
-| `(event, err) => void` | Custom handler |
+| Mode                   | Behavior                                     |
+| ---------------------- | -------------------------------------------- |
+| `'warn'`               | `console.warn(...)` — default                |
+| `'log'`                | `console.log(...)`                           |
+| `'error'`              | `console.error(...)`                         |
+| `'ignore'`             | Swallow silently                             |
+| `'throw'`              | Rethrow — remaining listeners are not called |
+| `(event, err) => void` | Custom handler                               |
 
 In all modes except `'throw'`, the remaining listeners for that emit continue to be called after an error.
 
