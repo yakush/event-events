@@ -1,6 +1,6 @@
 {
   "name": "events-events",
-  "version": "0.1.0-beta.4",
+  "version": "0.1.0-beta.6",
   "description": "Fully typed TypeScript event emitter with wildcard, once, and async/await support",
   "license": "MIT",
   "author": "its.yak@gmail.com",
@@ -51,18 +51,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yakush/event-events"
+    "url": "https://github.com/baby-yak/events-events"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "keywords": [
-    "event-emitter",
+    "event",
+    "events",
+    "events-emitter",
+    "eventemitter",
     "typed",
     "typescript",
     "async",
-    "wildcard",
-    "priority",
-    "eventemitter"
+    "wildcard"
   ]
 }
