@@ -1,5 +1,5 @@
 {
-  "name": "events-events",
+  "name": "@baby-yak/events-events",
   "version": "0.1.0-beta.6",
   "description": "Fully typed TypeScript event emitter with wildcard, once, and async/await support",
   "license": "MIT",
