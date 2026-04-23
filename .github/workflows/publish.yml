@@ -21,6 +21,15 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: npm publish --provenance --access public
+      - run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *"-beta"* ]]; then
+            TAG="beta"
+          elif [[ "$VERSION" == *"-alpha"* ]]; then
+            TAG="alpha"
+          else
+            TAG="latest"
+          fi
+          npm publish --provenance --access public --tag $TAG
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
