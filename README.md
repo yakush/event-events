@@ -1,17 +1,19 @@
 # events-events
 
+> **Beta** — API is stable but the package is still early. Feedback welcome.
+
 A fully typed TypeScript event emitter. Drop-in replacement for Node's `EventEmitter` with a generic type parameter that enforces event names and payload types at compile time.
 
 ## Install
 
 ```bash
-npm install events-events
+npm install @baby-yak/events-events
 ```
 
 ## Quick start
 
 ```ts
-import { TypedEventEmitter } from 'events-events';
+import { TypedEventEmitter } from '@baby-yak/events-events';
 
 type AppEvents = {
   userJoined: (userId: string) => void;
