@@ -21,15 +21,6 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "$VERSION" == *"-beta"* ]]; then
-            TAG="beta"
-          elif [[ "$VERSION" == *"-alpha"* ]]; then
-            TAG="alpha"
-          else
-            TAG="latest"
-          fi
-          npm publish --provenance --access public --tag $TAG
+      - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
