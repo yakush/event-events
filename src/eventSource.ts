@@ -111,27 +111,13 @@ export interface EventSource<T_EventMap extends EventMap = EventMap> {
   ): Promise<EventParamsCombined<T_EventMap, T_Event>>;
 
   /**
-   * Removes all listeners for a specific event, or all listeners for all events
-   * if no event is specified. Returns `this` for chaining.
+   * creates a client for just listening to events  \
+   * also acts a "bucket" for event listening, that can be removed in a single call to detachSource()
    */
-  removeAllListeners(event?: EventNamesCombined<T_EventMap>): this;
-
-  /** Returns the number of listeners registered for the given event. */
-  listenerCount(event: EventNamesCombined<T_EventMap>): number;
-  /** Returns an array of event names that currently have at least one listener. */
-  eventNames(): EventNamesCombined<T_EventMap>[];
+  createEventSource(): EventSource<T_EventMap>;
 
   /**
-   * Returns the wrapped listener functions for the given event — these include
-   * the auto-remove logic injected by `once()` and `prependOnceListener()`.
-   * Use `rawListeners()` to get the original functions.
+   * remove all the listeners that was registered under this source at once
    */
-  listeners<T_Event extends EventNamesCombined<T_EventMap>>(
-    event: T_Event,
-  ): EventListenerCombined<T_EventMap, T_Event>[];
-
-  /** Returns the original listener functions, without any once-wrapper logic. */
-  rawListeners<T_Event extends EventNamesCombined<T_EventMap>>(
-    event: T_Event,
-  ): EventListenerCombined<T_EventMap, T_Event>[];
+  detachSourceListeners(event?: EventNamesCombined<T_EventMap>): this;
 }

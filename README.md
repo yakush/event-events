@@ -111,6 +111,39 @@ emitter.removeAllListeners(); // clear all events
 emitter.removeAllListeners('event'); // clear one event
 ```
 
+### Event sources
+
+An event source is a lightweight view of the emitter that shares the same listener map. Use it to group a set of listeners together so they can all be removed in a single call — useful for components or modules that subscribe to many events and need a clean teardown.
+
+```ts
+const source = emitter.createEventSource();
+
+source.on('userJoined', onUserJoined);
+source.on('scoreChanged', onScoreChanged);
+source.once('close', onClose);
+
+// later — removes only the listeners registered via this source
+source.detachSourceListeners();
+```
+
+Sources can themselves create child sources, each acting as its own independent bucket:
+
+```ts
+const child = source.createEventSource();
+child.on('userJoined', handler);
+
+source.detachSourceListeners(); // removes source's listeners only
+child.detachSourceListeners();  // removes child's listeners only
+```
+
+`detachSourceListeners()` accepts an optional event name to limit removal to one event:
+
+```ts
+source.detachSourceListeners('userJoined'); // only removes userJoined listeners from this source
+```
+
+`listenerCount()` and `eventNames()` always reflect the total across the emitter and all sources, since they share the same internal map.
+
 ### Introspection
 
 ```ts
