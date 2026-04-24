@@ -1,6 +1,6 @@
 {
   "name": "@baby-yak/events-events",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fully typed TypeScript event emitter with wildcard, once, and async/await support",
   "license": "MIT",
   "author": "its.yak@gmail.com",
