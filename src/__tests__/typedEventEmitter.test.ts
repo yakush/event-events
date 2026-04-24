@@ -726,5 +726,205 @@ describe('TypedEventEmitter', () => {
       await promise.catch(() => {});
       expect(emitter.listenerCount('greet')).toBe(0);
     });
+
+    it('rejects with "removed" when removeAllListeners(event) removes the waitFor listener', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const promise = emitter.waitFor('greet');
+      emitter.removeAllListeners('greet');
+
+      await expect(promise).rejects.toThrow('removed');
+    });
+
+    it('rejects with "removed" when removeAllListeners() removes the waitFor listener', async () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+
+      const promise = emitter.waitFor('greet');
+      emitter.removeAllListeners();
+
+      await expect(promise).rejects.toThrow('removed');
+    });
+  });
+
+  // -------------------------------------------------------
+  // once with multiple listeners (re-entry safety)
+  // -------------------------------------------------------
+  describe('once with multiple listeners', () => {
+    it('does not skip listeners registered after a once listener that fires and removes itself', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      emitter.once('greet', () => calls.push('once'));
+      emitter.on('greet', () => calls.push('persistent'));
+
+      emitter.emit('greet', 'x');
+
+      expect(calls).toEqual(['once', 'persistent']);
+    });
+
+    it('does not skip listeners when a once listener is prepended', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      emitter.on('greet', () => calls.push('first'));
+      emitter.prependOnceListener('greet', () => calls.push('prepend-once'));
+      emitter.on('greet', () => calls.push('last'));
+
+      emitter.emit('greet', 'x');
+
+      expect(calls).toEqual(['prepend-once', 'first', 'last']);
+    });
+  });
+
+  // -------------------------------------------------------
+  // createEventSource / detachSourceListeners
+  // -------------------------------------------------------
+  describe('createEventSource', () => {
+    it('source receives events emitted on the main emitter', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      const source = emitter.createEventSource();
+      source.on('greet', (name) => calls.push(name));
+
+      emitter.emit('greet', 'Alice');
+      emitter.emit('greet', 'Bob');
+
+      expect(calls).toEqual(['Alice', 'Bob']);
+    });
+
+    it('source listeners and emitter listeners are called together on emit', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const calls: string[] = [];
+
+      emitter.on('greet', () => calls.push('emitter'));
+      const source = emitter.createEventSource();
+      source.on('greet', () => calls.push('source'));
+
+      emitter.emit('greet', 'x');
+
+      expect(calls).toEqual(['emitter', 'source']);
+    });
+
+    it('listenerCount is the total across the emitter and all sources', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const s1 = emitter.createEventSource();
+      const s2 = emitter.createEventSource();
+
+      emitter.on('greet', vi.fn());
+      s1.on('greet', vi.fn());
+      s1.on('greet', vi.fn());
+      s2.on('greet', vi.fn());
+
+      // all three views share the same internal map
+      expect(emitter.listenerCount('greet')).toBe(4);
+    });
+
+    it('detachSourceListeners() removes only the calling source listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const s1 = emitter.createEventSource();
+      const s2 = emitter.createEventSource();
+
+      const emitterFn = vi.fn();
+      const s1Fn = vi.fn();
+      const s2Fn = vi.fn();
+
+      emitter.on('greet', emitterFn);
+      s1.on('greet', s1Fn);
+      s2.on('greet', s2Fn);
+
+      s1.detachSourceListeners();
+
+      emitter.emit('greet', 'x');
+
+      expect(emitterFn).toHaveBeenCalledOnce();
+      expect(s1Fn).not.toHaveBeenCalled();
+      expect(s2Fn).toHaveBeenCalledOnce();
+    });
+
+    it('detachSourceListeners(event) removes only that event from the source', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const source = emitter.createEventSource();
+
+      const greetFn = vi.fn();
+      const countFn = vi.fn();
+
+      source.on('greet', greetFn);
+      source.on('count', countFn);
+
+      source.detachSourceListeners('greet');
+
+      emitter.emit('greet', 'x');
+      emitter.emit('count', 1);
+
+      expect(greetFn).not.toHaveBeenCalled();
+      expect(countFn).toHaveBeenCalledOnce();
+    });
+
+    it('detaching one source does not affect a second source', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const s1 = emitter.createEventSource();
+      const s2 = emitter.createEventSource();
+      const s3 = emitter.createEventSource();
+
+      const fn1 = vi.fn();
+      const fn2 = vi.fn();
+      const fn3 = vi.fn();
+
+      s1.on('greet', fn1);
+      s2.on('greet', fn2);
+      s3.on('greet', fn3);
+
+      s2.detachSourceListeners();
+
+      emitter.emit('greet', 'x');
+
+      expect(fn1).toHaveBeenCalledOnce();
+      expect(fn2).not.toHaveBeenCalled();
+      expect(fn3).toHaveBeenCalledOnce();
+    });
+
+    it('emitter.detachSourceListeners() removes only listeners registered on the emitter itself', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const source = emitter.createEventSource();
+
+      const emitterFn = vi.fn();
+      const sourceFn = vi.fn();
+
+      emitter.on('greet', emitterFn);
+      source.on('greet', sourceFn);
+
+      emitter.detachSourceListeners();
+
+      emitter.emit('greet', 'x');
+
+      expect(emitterFn).not.toHaveBeenCalled();
+      expect(sourceFn).toHaveBeenCalledOnce();
+    });
+
+    it('listenerCount reflects removed source listeners', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const source = emitter.createEventSource();
+
+      source.on('greet', vi.fn());
+      source.on('greet', vi.fn());
+      expect(emitter.listenerCount('greet')).toBe(2);
+
+      source.detachSourceListeners('greet');
+      expect(emitter.listenerCount('greet')).toBe(0);
+    });
+
+    it('source supports once — auto-removed after first emit', () => {
+      const emitter = new TypedEventEmitter<TestEvents>();
+      const source = emitter.createEventSource();
+      const fn = vi.fn();
+
+      source.once('greet', fn);
+      emitter.emit('greet', 'first');
+      emitter.emit('greet', 'second');
+
+      expect(fn).toHaveBeenCalledOnce();
+      expect(emitter.listenerCount('greet')).toBe(0);
+    });
   });
 });
